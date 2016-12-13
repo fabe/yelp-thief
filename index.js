@@ -1,83 +1,80 @@
 'use strict';
 
 const Yelp = require('yelpv3');
-const jsonfile = require('jsonfile');
-const request = require('request');
+const mongoose = require('mongoose');
+const database = require('./config/database');
+const Place = require('./models/place');
+const credentials = require('./config/credentials');
+
+// Connect to database.
+mongoose.connect(database.url);
+// Set mongoose promise to the default ES6 Promise.
+mongoose.Promise = global.Promise;
 
 // Set up access to API
 const yelp = new Yelp({
-  app_id: 'i2wmw0jJ7ZHwxUW-jDc_AA',
-  app_secret: '6M8YAIDd8v8VAI66pCxnOFMe2Pr4qeSn1QKHgQEG63gin1Fo1NdbFiFELkIsbWC9',
+  app_id: credentials.app_id,
+  app_secret: credentials.app_secret,
 });
 
-// Options for search
+// Set default options. 
 const options = {
-  latitude: 52.529663,
-  longitude: 13.401363,
-  limit: 50,
-  radius: 500,
+  latitude: 52.522688,
+  longitude: 13.402251,
+  limit: 50, radius: 200,
   offset: 0,
 };
 
 // Search places
-search(options, data => {
-  let output = geoJson(data.businesses);
-  saveJson(output, `./data/${+ new Date()}.json`);
+search(options, () => {
+  console.log('We got the data!');
 });
 
 /**
  * Search API
- * @param {object} options - API options (https://www.yelp.com/developers/documentation/v3/business_search).
+ * @param {object} options - API options (http://bit.ly/2gy1fmx).
  * @param {function} callback - Called after results are ready.
- * @callback({object}) - Raw search results from API.
+ * @callback - Fired once done.
  */
 function search(options, callback) {
   yelp.search(options)
-  .then(data => callback(JSON.parse(data)))
+  .then(data => {
+    // Parse data.
+    data = JSON.parse(data);
+
+    // Set variables to work with.
+    let total = data.total;
+    let offset = options.offset;
+    let newOffset = offset + 50;
+    let stillLeft = total - newOffset;
+    console.log(`[SUCCESS] Received data starting from ${offset} of ${total}.`);
+
+    // Save data to database.
+    savePlacesToDatabase(data.businesses);
+
+    // Check if another request is in order.
+    if (newOffset < total) {
+      console.log(`[INFO] There are still ${stillLeft} places left.`);
+      // Set new offset for next request.
+      options.offset = newOffset;
+      search(options, callback);
+    } else {
+      callback();
+    }
+  })
   .catch(err => { console.error(err); });
 };
 
 /**
- * Create GeoJSON from API result.
- * @param {array} places - `businesses` returned from the API.
- * @returns {array}
+ * Save places to Database.
+ * @param {array} places - All places to be saved.
+ * @callback - Fired once saving is done.
  */
-function geoJson(places) {
-  let ratings = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
-  let classes = ['none', 'half', 'one', 'one-half', 'two', 'two-half', 'three', 'three-half', 'four', 'four-half', 'five'];
-
-  // TODO: Remove closed places (inactive)
-  let geoJson = places.map(place => ({
-    type: 'Feature',
-    geometry: {
-      type: 'Point',
-      coordinates: [place.coordinates.longitude, place.coordinates.latitude],
-    },
-    properties: {
-      id: place.id,
-      title: place.name,
-      rating: place.rating,
-      reviewCount: place.review_count,
-      categories: place.categories,
-      icon: {
-        className: `marker ${classes[ratings.indexOf(place.rating)]}`,
-        html: classes[ratings.indexOf(place.rating)],
-        iconSize: null
-      },
-    },
-  }));
-  return geoJson;
-};
-
-/**
- * Save JSON to file.
- * @param {object} json - JSON to be saved.
- * @param {string} location - Location of file.
- * @returns {boolean}
- */
-function saveJson(json, location) {
-  jsonfile.writeFile(location, json, { spaces: 2 }, function (err) {
-    if (err) return false;
-    return true;
+function savePlacesToDatabase(places, callback) {
+  places.map(placeData => {
+    let place = new Place(placeData);
+    place.save();
   });
-};
+  if (callback) callback();
+  console.log(`[SUCCESS] Saved data from request to database.`);
+}
