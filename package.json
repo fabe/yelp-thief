@@ -1,0 +1,14 @@
+{
+  "name": "yelp-thief",
+  "version": "0.0.1",
+  "main": "index.js",
+  "license": "MIT",
+  "description": "Stealing yelp's public data with a bot",
+  "repository": "https://github.com/fabe/yelp-thief",
+  "dependencies": {
+    "geolib": "^2.0.22",
+    "jsonfile": "^2.4.0",
+    "request": "^2.79.0",
+    "yelpv3": "^1.2.1"
+  }
+}
