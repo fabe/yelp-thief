@@ -6,9 +6,12 @@
   "description": "Stealing yelp's public data with a bot",
   "repository": "https://github.com/fabe/yelp-thief",
   "dependencies": {
+    "async": "^2.1.4",
     "geolib": "^2.0.22",
     "jsonfile": "^2.4.0",
+    "lodash": "^4.17.2",
     "mongoose": "^4.7.2",
+    "node-geojson-grid": "^1.0.0",
     "request": "^2.79.0",
     "yelpv3": "^1.2.1"
   }

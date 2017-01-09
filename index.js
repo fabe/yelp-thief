@@ -2,9 +2,12 @@
 
 const Yelp = require('yelpv3');
 const mongoose = require('mongoose');
+const _ = require('lodash');
+const async = require('async');
 const database = require('./config/database');
 const Place = require('./models/place');
 const credentials = require('./config/credentials');
+const grid = require('./grid.geo.json');
 
 // Connect to database.
 mongoose.connect(database.url);
@@ -26,9 +29,20 @@ const options = {
 };
 
 // Search places
-search(options, () => {
-  console.log('We got the data!');
+async.eachLimit(grid.features, 1, (point, callback) => {
+  let lat = point.geometry.coordinates[1];
+  let lon = point.geometry.coordinates[0];
+  console.log(`[INFO] Going over place ${lat} : ${lon}.`);
+  let o = _.clone(options);
+  o.latitude = lat;
+  o.longitude = lon;
+  
+  search(o, callback);
+}, (err) => {
+  console.log('[SUCCESS] All searches have finished.');
+  if (err) console.log(`[ERROR] ${err}`);
 });
+
 
 /**
  * Search API
@@ -56,8 +70,9 @@ function search(options, callback) {
     if (newOffset < total) {
       console.log(`[INFO] There are still ${stillLeft} places left.`);
       // Set new offset for next request.
-      options.offset = newOffset;
-      search(options, callback);
+      let o = _.clone(options);
+      o.offset = newOffset;
+      search(o, callback);
     } else {
       callback();
     }
